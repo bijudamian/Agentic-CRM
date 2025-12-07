@@ -1,6 +1,6 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { Firestore, initializeFirestore, persistentLocalCache, CACHE_SIZE_UNLIMITED } from 'firebase/firestore';
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,39 +11,33 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
-/**
- * Initialize Firebase application instance.
- * Ensures that the app is initialized only once (singleton pattern).
- * Relies on environment variables for configuration.
- */
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
 
-// Initialize Firebase services
-export const auth = getAuth(app);
+// Only initialize Firebase on the client side
+if (typeof window !== 'undefined') {
+    try {
+        app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+        auth = getAuth(app);
 
-// Initialize Firestore with settings
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+        // Initialize Firestore with offline persistence
+        if (getApps().length === 1) {
+            db = initializeFirestore(app, {
+                localCache: persistentLocalCache({
+                    cacheSizeBytes: CACHE_SIZE_UNLIMITED
+                })
+            });
+        } else {
+            // If app already exists, get existing Firestore instance
+            const { getFirestore } = require('firebase/firestore');
+            db = getFirestore(app);
+        }
 
-export const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-    })
-});
-
-try {
-    // Check for missing config
-    if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-        console.error("Firebase Config Missing:", {
-            apiKey: !!firebaseConfig.apiKey,
-            projectId: !!firebaseConfig.projectId,
-            authDomain: !!firebaseConfig.authDomain
-        });
-    } else {
         console.log("Firebase Configured for Project:", firebaseConfig.projectId);
+    } catch (error) {
+        console.error("Error initializing Firebase:", error);
     }
-} catch (e) {
-    console.error("Error checking firebase config", e);
 }
 
-export default app;
+export { auth, db, app as default };
