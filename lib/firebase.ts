@@ -23,4 +23,22 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
+// Enable offline persistence
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+
+try {
+    // Check for missing config
+    if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+        console.error("Firebase Config Missing:", {
+            apiKey: !!firebaseConfig.apiKey,
+            projectId: !!firebaseConfig.projectId,
+            authDomain: !!firebaseConfig.authDomain
+        });
+    } else {
+        console.log("Firebase Configured for Project:", firebaseConfig.projectId);
+    }
+} catch (e) {
+    console.error("Error checking firebase config", e);
+}
+
 export default app;
