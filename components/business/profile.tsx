@@ -95,7 +95,7 @@ export function BusinessProfile() {
           <CardContent className="pt-6">
             <div className="flex flex-col items-center text-center">
               <Avatar className="h-24 w-24 mb-4">
-                <AvatarImage src={`/.jpg?height=96&width=96&query=${businessProfile.businessName}`} />
+                <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(businessProfile.businessName)}&background=random`} />
                 <AvatarFallback>{businessProfile.businessName?.substring(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
               <h3 className="text-xl font-semibold">{businessProfile.businessName}</h3>

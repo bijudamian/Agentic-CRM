@@ -92,7 +92,7 @@ export function BusinessDashboard() {
                 >
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={`/.jpg?height=40&width=40&query=${lead.name}`} />
+                      <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(lead.name)}&background=random`} />
                       <AvatarFallback>
                         {lead.name
                           .split(" ")

@@ -215,7 +215,7 @@ export function BusinessSupport() {
                   >
                     <div className="flex items-start gap-4">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={`/.jpg?height=40&width=40&query=${ticket.customer}`} />
+                        <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(ticket.customer)}&background=random`} />
                         <AvatarFallback>
                           {ticket.customer
                             .split(" ")
