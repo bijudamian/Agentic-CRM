@@ -1,37 +1,58 @@
-// /app/dashboard/research/route.ts
-import { NextResponse } from "next/server";
-import { Perplexity } from "@perplexity-ai/perplexity_ai";
-import { GoogleGenAI } from "@google/genai";
+import { z } from "zod"
+import { Perplexity } from "@perplexity-ai/perplexity_ai"
+import { GoogleGenAI } from "@google/genai"
+import { fail, logError, logInfo, ok, requestId } from "@/lib/api/http"
+import { serverEnv } from "@/lib/env"
+
+const researchRequestSchema = z.object({
+  businessProfile: z.object({
+    businessName: z.string().min(1),
+    niche: z.string().min(1),
+    category: z.string().min(1),
+    address: z.object({ city: z.string().optional() }).optional(),
+  }),
+  marketingConfig: z
+    .object({
+      goal: z.string().optional(),
+      budget: z.string().optional(),
+      channels: z.array(z.string()).optional(),
+    })
+    .optional(),
+  simulatePerplexity: z.boolean().optional().default(false),
+})
 
 export async function POST(req: Request) {
-    try {
-        const body = await req.json();
-        const { businessProfile, marketingConfig, simulatePerplexity } = body;
+  const rid = requestId()
 
-        const perplexityApiKey = process.env.PERPLEXITY_API_KEY;
-        const geminiApiKey = process.env.GEMINI_API_KEY;
+  try {
+    const body = await req.json()
+    const parsed = researchRequestSchema.safeParse(body)
 
-        if ((!perplexityApiKey && !simulatePerplexity) || !geminiApiKey) {
-            console.error("Missing API Keys");
-            return NextResponse.json(
-                { error: "Server configuration error: Missing API Keys" },
-                { status: 500 }
-            );
-        }
+    if (!parsed.success) {
+      return fail("Invalid request payload", "VALIDATION_ERROR", 400, {
+        rid,
+        issues: parsed.error.flatten(),
+      })
+    }
 
-        let rawResearchText = "";
+    const { businessProfile, marketingConfig, simulatePerplexity } = parsed.data
 
-        // --- STEP 1: Research (Perplexity OR Simulation) ---
-        if (simulatePerplexity) {
-            console.log(
-                "[Research] SIMULATION MODE: Skipping Perplexity API cost."
-            );
-            rawResearchText = `
+    const perplexityApiKey = serverEnv.PERPLEXITY_API_KEY
+    const geminiApiKey = serverEnv.GEMINI_API_KEY
+
+    if ((!perplexityApiKey && !simulatePerplexity) || !geminiApiKey) {
+      return fail("Server configuration error: Missing API keys", "SERVER_CONFIG_ERROR", 500, { rid })
+    }
+
+    let rawResearchText = ""
+
+    if (simulatePerplexity) {
+      logInfo("marketing.research", "Simulation mode enabled", { rid })
+      rawResearchText = `
 [SIMULATED RESEARCH OUTPUT FOR TESTING]
 
 Executive Summary:
-The market for specific ${businessProfile.niche} in ${businessProfile.address?.city || "the region"
-                } is growing steadily. Key opportunities exist in digital channels.
+The market for specific ${businessProfile.niche} in ${businessProfile.address?.city || "the region"} is growing steadily. Key opportunities exist in digital channels.
 
 Competitors:
 1. Big Corp Inc: Strong brand presence but slow customer service.
@@ -48,20 +69,13 @@ Strategy:
 - Launch a "Green" product line to address eco-trends.
 - Improve website load speed for mobile users.
 - Partner with local influencers for authenticity.
-      `;
-        } else {
-            const perplexityClient = new Perplexity({ apiKey: perplexityApiKey! });
+`
+    } else {
+      const perplexityClient = new Perplexity({ apiKey: perplexityApiKey! })
+      const budget = marketingConfig?.budget || "Not specified"
+      const channels = Array.isArray(marketingConfig?.channels) ? marketingConfig.channels.join(", ") : "None specified"
 
-            const budget = marketingConfig?.budget || "Not specified";
-            const channels = Array.isArray(marketingConfig?.channels)
-                ? marketingConfig.channels.join(", ")
-                : "None specified";
-
-            console.log(
-                `[Research] Starting deep research for: ${businessProfile.businessName}`
-            );
-
-            const researchSystemPrompt = `You are a world-class marketing researcher.
+      const researchSystemPrompt = `You are a world-class marketing researcher.
 Conduct a thorough deep-dive analysis based on the user's business details.
 Focus on finding REAL, current competitors and ACTUAL market trends from the live web.
 
@@ -71,9 +85,9 @@ Provide a comprehensive, detailed report covering:
 3. Key Market Trends
 4. Strategic Recommendations
 
-Do NOT output JSON. Just provide high-quality, dense information in plain text.`;
+Do NOT output JSON. Just provide high-quality, dense information in plain text.`
 
-            const researchUserPrompt = `
+      const researchUserPrompt = `
 Business Name: ${businessProfile.businessName}
 Niche/Category: ${businessProfile.niche} (${businessProfile.category})
 Marketing Goal: ${marketingConfig?.goal || "Deep Market Analysis"}
@@ -82,124 +96,86 @@ Budget: ${budget}
 Channels: ${channels}
 
 Conduct deep research now.
-`;
+`
 
-            const pplxResponse = await perplexityClient.chat.completions.create({
-                model: "sonar-pro",
-                messages: [
-                    { role: "system", content: researchSystemPrompt },
-                    { role: "user", content: researchUserPrompt },
-                ],
-                stream: true,
-                web_search_options: {
-                    search_type: "pro",
-                },
-            });
+      logInfo("marketing.research", "Starting Perplexity research", { rid, businessName: businessProfile.businessName })
+      const pplxResponse = await perplexityClient.chat.completions.create({
+        model: "sonar-pro",
+        messages: [
+          { role: "system", content: researchSystemPrompt },
+          { role: "user", content: researchUserPrompt },
+        ],
+        stream: true,
+        web_search_options: {
+          search_type: "pro",
+        },
+      })
 
-            for await (const chunk of pplxResponse) {
-                const piece = chunk.choices[0]?.delta?.content;
-                if (piece) rawResearchText += piece;
-            }
-            console.log(
-                `[Research] Perplexity completed. Length: ${rawResearchText.length} chars.`
-            );
-        }
+      for await (const chunk of pplxResponse) {
+        const piece = chunk.choices[0]?.delta?.content
+        if (piece) rawResearchText += piece
+      }
+    }
 
-        // --- STEP 2: Parse with Gemini into your ResearchReport shape ---
-        const ai = new GoogleGenAI({ apiKey: geminiApiKey! });
-
-        const parsingPrompt = `
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey! })
+    const parsingPrompt = `
 You are a strict JSON extraction engine.
 
-You will be given a FULL raw marketing research report (including executive summary, competitors, trends, strategy, etc).
-Read the ENTIRE report carefully and then return ONLY a JSON object in this EXACT shape:
-
+You will be given a FULL raw marketing research report and return ONLY this JSON shape:
 {
   "summary": "A high-level executive summary (max 3 sentences)",
-  "competitors": [
-    { "name": "Name", "strength": "Key strength", "weakness": "Key weakness" }
-  ],
+  "competitors": [{ "name": "Name", "strength": "Key strength", "weakness": "Key weakness" }],
   "trends": ["Trend 1", "Trend 2", "Trend 3"],
-  "strategy": [
-    "Specific actionable strategy step 1",
-    "Step 2",
-    "Step 3",
-    "Step 4"
-  ]
+  "strategy": ["Specific actionable strategy step 1", "Step 2", "Step 3", "Step 4"]
 }
 
 Rules:
-- Always include ALL 4 top-level keys: "summary", "competitors", "trends", "strategy".
-- If you can't find some section, still return the key with an empty array (e.g. "competitors": []).
-- "summary" MUST be max 3 sentences and truly capture the full report, not just one section.
-- "competitors" must be derived from ALL competitor info in the report (merge duplicates, be concise).
-- "trends" must be the MOST important market/consumer/industry trends mentioned in the report.
-- "strategy" must be concrete, actionable recommendations derived from the whole report, tailored to the business.
-- Do NOT include any markdown, code fences, commentary, or extra fields. Return ONLY raw JSON.
+- Always include all 4 top-level keys.
+- Return raw JSON only.
 
 Raw Report:
 """
 ${rawResearchText}
 """
-`;
+`
 
-        let parsedJsonText: string | null = null;
+    let report: {
+      summary: string
+      competitors: { name: string; strength: string; weakness: string }[]
+      trends: string[]
+      strategy: string[]
+    } | null = null
 
-        try {
-            const geminiResponse = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: parsingPrompt,
-                config: {
-                    // Forces JSON-only output
-                    responseMimeType: "application/json",
-                },
-            });
-
-            // In @google/genai, text is a string property
-            parsedJsonText = geminiResponse.text ?? null;
-            console.log("[Research] Gemini Parsing complete.");
-        } catch (geminiError) {
-            console.warn(
-                "[Research] Gemini Parsing Failed. Falling back to raw text.",
-                geminiError
-            );
-        }
-
-        let report: {
-            summary: string;
-            competitors: { name: string; strength: string; weakness: string }[];
-            trends: string[];
-            strategy: string[];
-        } | null = null;
-
-        if (parsedJsonText) {
-            try {
-                report = JSON.parse(parsedJsonText);
-            } catch (e) {
-                console.error("JSON parse failed on Gemini output", e);
-            }
-        }
-
-        // Final fallback if Gemini/JSON fails
-        if (!report) {
-            report = {
-                summary:
-                    "Research completed, but structured JSON parsing failed. Showing raw report text under 'strategy'.",
-                competitors: [],
-                trends: [],
-                strategy: [rawResearchText || "No data received."],
-            };
-        }
-
-        return NextResponse.json(report);
-    } catch (error: any) {
-        console.error("Research API Error:", error);
-        return NextResponse.json(
-            {
-                error: "Failed to complete research",
-                details: error.message,
-            },
-            { status: 500 }
-        );
+    try {
+      const geminiResponse = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: parsingPrompt,
+        config: {
+          responseMimeType: "application/json",
+        },
+      })
+      const parsedJsonText = geminiResponse.text ?? null
+      report = parsedJsonText ? JSON.parse(parsedJsonText) : null
+    } catch {
+      report = null
     }
+
+    if (!report) {
+      report = {
+        summary: "Research completed, but structured JSON parsing failed. Showing raw report text under strategy.",
+        competitors: [],
+        trends: [],
+        strategy: [rawResearchText || "No data received."],
+      }
+    }
+
+    logInfo("marketing.research", "Research complete", { rid })
+    return ok({ ...report, rid })
+  } catch (error: any) {
+    logError("marketing.research", "Research API Error", { rid, error })
+    return fail("Failed to complete research", "INTERNAL_ERROR", 500, {
+      rid,
+      details: error?.message,
+    })
+  }
 }
