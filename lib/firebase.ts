@@ -1,15 +1,18 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { Firestore, initializeFirestore, persistentLocalCache, CACHE_SIZE_UNLIMITED } from 'firebase/firestore';
+import { clientEnv } from './env';
 
-const firebaseConfig = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
+const firebaseConfig = clientEnv.success
+    ? {
+        apiKey: clientEnv.data.NEXT_PUBLIC_FIREBASE_API_KEY,
+        authDomain: clientEnv.data.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+        projectId: clientEnv.data.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        storageBucket: clientEnv.data.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: clientEnv.data.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+        appId: clientEnv.data.NEXT_PUBLIC_FIREBASE_APP_ID,
+    }
+    : null;
 
 let app: FirebaseApp;
 let auth: Auth;
@@ -18,6 +21,10 @@ let db: Firestore;
 // Only initialize Firebase on the client side
 if (typeof window !== 'undefined') {
     try {
+        if (!firebaseConfig) {
+            throw new Error('Missing or invalid Firebase client environment variables.');
+        }
+
         app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
         auth = getAuth(app);
 
