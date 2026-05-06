@@ -7,3 +7,5 @@ Running notes on ongoing development work.
 - updated colour tokens and design system
 ### 2026-05-05
 - improved code readability with better variable names
+### 2026-05-06
+- added edge case handling for empty states
