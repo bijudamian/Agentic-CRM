@@ -9,3 +9,5 @@ Running notes on ongoing development work.
 - improved code readability with better variable names
 ### 2026-05-06
 - added edge case handling for empty states
+### 2026-05-09
+- reviewed authentication flow and cleaned up token handling
