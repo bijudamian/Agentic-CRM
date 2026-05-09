@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
+import { GoogleGenAI } from '@google/genai';
 
 /**
- * API Handler for generating marketing content.
- * @mock This is currently a mock implementation that simulates AI generation with delays.
- * @param req - The request object containing topic, tone, format, etc.
+ * API Handler for generating marketing content using Gemini.
+ * @param req - The request object containing topic, tone, format, and businessContext.
  * @returns JSON response with generated content string.
  */
 export async function POST(req: Request) {
@@ -11,29 +11,59 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { topic, tone, format, businessContext } = body;
 
-        // Simulate AI Generation Delay
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const geminiApiKey = process.env.GEMINI_API_KEY;
+
+        if (!geminiApiKey) {
+            console.error("Missing GEMINI_API_KEY");
+            return NextResponse.json(
+                { error: "Server configuration error: Missing API Keys" },
+                { status: 500 }
+            );
+        }
+
+        const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+
+        const prompt = `
+You are an expert marketing copywriter. Generate marketing content based on the following context.
+
+Business Context:
+- Business Name: ${businessContext.businessName}
+- Niche: ${businessContext.niche}
+- Category: ${businessContext.category}
+- Target Audience: ${businessContext.targetAudience || 'General audience'}
+
+Task:
+Write a ${format} about the topic: "${topic}".
+The tone should be: "${tone}".
+
+Make the content engaging, professional (unless tone says otherwise), and ready to publish.
+Do not output JSON, just plain text ready to be copied.
+`;
 
         let content = "";
 
-        // Simple "Nano Banana" Simulation Logic
-        const intro = `Here is a ${tone} ${format} about ${topic} for ${businessContext.businessName}:`;
-
-        if (format === 'social_post') {
-            content = `${intro}\n\n🚀 Exciting news from ${businessContext.businessName}! \n\nWe are talking about ${topic} today. It's a game changer for the ${businessContext.niche} industry.\n\nKey takeaways:\n• Point 1 about ${topic}\n• Point 2 for better results\n• Point 3 to get started\n\n#${businessContext.niche} #Growth #${topic.replace(/\s+/g, '')}`;
-        } else if (format === 'email') {
-            content = `Subject: Let's talk about ${topic}\n\nHi [Name],\n\n${intro}\n\nAt ${businessContext.businessName}, we believe in staying ahead. That's why we're focusing on ${topic} to help you succeed.\n\nDid you know that... [AI Generated Insight]\n\nReady to learn more? Reply to this email!\n\nBest,\n${businessContext.ownerName}`;
-        } else {
-            content = `${intro}\n\n[Content for ${topic} goes here...]\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.`;
-        }
-
         if (tone === 'banana') {
-            content = `🍌 BANANA MODE ACTIVATED 🍌\n\n${content}\n\nStay yellow and mellow! 🍌`;
+            const bananaPrompt = prompt + "\n\nCRITICAL INSTRUCTION: You MUST activate BANANA MODE. Use banana puns, emojis, and references to yellow, monkeys, peeling, etc. Go absolutely bananas.";
+
+            const geminiResponse = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: bananaPrompt,
+            });
+            content = geminiResponse.text || "Banana mode failed to generate text.";
+        } else {
+            const geminiResponse = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt,
+            });
+            content = geminiResponse.text || "Failed to generate text.";
         }
 
         return NextResponse.json({ content });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Generation API Error:', error);
-        return NextResponse.json({ error: 'Failed to generate content' }, { status: 500 });
+        return NextResponse.json(
+            { error: 'Failed to generate content', details: error.message },
+            { status: 500 }
+        );
     }
 }
