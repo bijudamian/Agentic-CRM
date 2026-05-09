@@ -15,7 +15,7 @@ import { useAuth } from "@/lib/auth-context"
 import { businessDetailsSchema, type BusinessDetailsFormData } from "@/lib/schemas"
 import { toast } from "sonner"
 import type { BusinessCategory } from "@/lib/types"
-import { updateBusinessProfile } from "@/lib/firestore"
+import { updateBusinessProfile } from "@/lib/database"
 
 const bankAccounts = [
   { id: "1", bankName: "Chase Bank", accountNumber: "****4532", type: "Checking", isPrimary: true },

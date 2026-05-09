@@ -15,7 +15,7 @@ import {
     type BusinessDetailsFormData,
     type BestSellersFormData,
 } from '@/lib/schemas';
-import { createBusinessProfile } from '@/lib/firestore';
+import { createBusinessProfile } from '@/lib/database';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

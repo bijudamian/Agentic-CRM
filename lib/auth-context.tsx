@@ -1,24 +1,17 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-    User,
-    onAuthStateChanged,
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    signOut,
-    UserCredential,
-} from 'firebase/auth';
-import { auth } from './firebase';
+import { supabase } from './supabase';
 import { BusinessProfile } from './types';
-import { getBusinessProfile } from './firestore';
+import { getBusinessProfile } from './database';
+import { User } from '@supabase/supabase-js';
 
 interface AuthContextType {
     user: User | null;
     businessProfile: BusinessProfile | null;
     loading: boolean;
-    login: (email: string, password: string) => Promise<UserCredential>;
-    signup: (email: string, password: string) => Promise<UserCredential>;
+    login: (email: string, password: string) => Promise<any>;
+    signup: (email: string, password: string) => Promise<any>;
     logout: () => Promise<void>;
     refreshBusinessProfile: () => Promise<void>;
 }
@@ -31,19 +24,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!auth) {
-            console.warn("Auth is not initialized. Bypassing auth state listener.");
-            setLoading(false);
-            return;
-        }
+        const fetchSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            setUser(session?.user ?? null);
 
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            setUser(user);
-
-            if (user) {
-                // Fetch business profile when user logs in
+            if (session?.user) {
                 try {
-                    const profile = await getBusinessProfile(user.uid);
+                    const profile = await getBusinessProfile(session.user.id);
+                    setBusinessProfile(profile);
+                } catch (error) {
+                    console.error('Error fetching business profile:', error);
+                }
+            }
+            setLoading(false);
+        };
+        fetchSession();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            setUser(session?.user ?? null);
+
+            if (session?.user) {
+                try {
+                    const profile = await getBusinessProfile(session.user.id);
                     setBusinessProfile(profile);
                 } catch (error) {
                     console.error('Error fetching business profile:', error);
@@ -51,32 +53,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } else {
                 setBusinessProfile(null);
             }
-
             setLoading(false);
         });
 
-        return unsubscribe;
+        return () => subscription.unsubscribe();
     }, []);
 
     const login = async (email: string, password: string) => {
-        if (!auth) throw new Error("Auth is not initialized");
-        return signInWithEmailAndPassword(auth, email, password);
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        return data;
     };
 
     const signup = async (email: string, password: string) => {
-        if (!auth) throw new Error("Auth is not initialized");
-        return createUserWithEmailAndPassword(auth, email, password);
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        return data;
     };
 
     const logout = async () => {
-        if (!auth) return;
-        await signOut(auth);
+        await supabase.auth.signOut();
+        setUser(null);
         setBusinessProfile(null);
     };
 
     const refreshBusinessProfile = async () => {
         if (user) {
-            const profile = await getBusinessProfile(user.uid);
+            const profile = await getBusinessProfile(user.id);
             setBusinessProfile(profile);
         }
     };
