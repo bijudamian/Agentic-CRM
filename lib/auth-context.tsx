@@ -31,6 +31,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (!auth) {
+            console.warn("Auth is not initialized. Bypassing auth state listener.");
+            setLoading(false);
+            return;
+        }
+
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setUser(user);
 
@@ -53,14 +59,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const login = async (email: string, password: string) => {
+        if (!auth) throw new Error("Auth is not initialized");
         return signInWithEmailAndPassword(auth, email, password);
     };
 
     const signup = async (email: string, password: string) => {
+        if (!auth) throw new Error("Auth is not initialized");
         return createUserWithEmailAndPassword(auth, email, password);
     };
 
     const logout = async () => {
+        if (!auth) return;
         await signOut(auth);
         setBusinessProfile(null);
     };
