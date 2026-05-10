@@ -11,3 +11,5 @@ Running notes on ongoing development work.
 - added edge case handling for empty states
 ### 2026-05-09
 - reviewed authentication flow and cleaned up token handling
+### 2026-05-10
+- optimised database queries for faster load times
