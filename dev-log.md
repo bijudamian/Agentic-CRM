@@ -15,3 +15,4 @@ Running notes on ongoing development work.
 - optimised database queries for faster load times
 ### 2026-05-11
 - fixed server-side hydration mismatch
+- added unit tests for core utility functions
