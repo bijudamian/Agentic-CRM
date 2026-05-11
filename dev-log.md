@@ -13,3 +13,5 @@ Running notes on ongoing development work.
 - reviewed authentication flow and cleaned up token handling
 ### 2026-05-10
 - optimised database queries for faster load times
+### 2026-05-11
+- fixed server-side hydration mismatch
