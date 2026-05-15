@@ -103,7 +103,7 @@ export default function SignupPage() {
         try {
             // Create Firebase auth account
             const userCredential = await signup(accountData.email, accountData.password);
-            const userId = userCredential.user.uid;
+            const userId = userCredential.user.id;
 
             // Create business profile in Firestore
             await createBusinessProfile(userId, {
