@@ -16,3 +16,5 @@ Running notes on ongoing development work.
 ### 2026-05-11
 - fixed server-side hydration mismatch
 - added unit tests for core utility functions
+### 2026-05-18
+- updated API response handling and error messages
