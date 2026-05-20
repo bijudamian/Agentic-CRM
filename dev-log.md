@@ -18,3 +18,5 @@ Running notes on ongoing development work.
 - added unit tests for core utility functions
 ### 2026-05-18
 - updated API response handling and error messages
+### 2026-05-20
+- improved TypeScript types and interfaces
