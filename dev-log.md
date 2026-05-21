@@ -20,3 +20,5 @@ Running notes on ongoing development work.
 - updated API response handling and error messages
 ### 2026-05-20
 - improved TypeScript types and interfaces
+### 2026-05-21
+- improved global state management logic
