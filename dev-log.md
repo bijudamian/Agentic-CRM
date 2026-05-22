@@ -22,3 +22,5 @@ Running notes on ongoing development work.
 - improved TypeScript types and interfaces
 ### 2026-05-21
 - improved global state management logic
+### 2026-05-22
+- updated dependencies to latest stable versions
